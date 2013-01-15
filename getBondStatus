@@ -1,0 +1,242 @@
+#!/usr/bin/perl -w
+
+=head
+
+Utility to query regarding a bonded interface
+
+author= <ankzzdev>AT<gmail.com>
+
+bugs!! Any ??? I don't hope so!
+
+Wish me to add a few more options, sure mail me!!
+
+Utilize this code for usage. :-P Don't blame if 
+something does not works out. Just shoot a mail.
+
+License: I will get one
+
+=cut
+
+use strict;
+use warnings;
+
+# To support command line options
+use Getopt::Mixed "nextOption";
+
+my $module ="getBondStatus ";
+my $moduleversion = "1.00";
+
+# My variables; Lets the module speak out loud
+my $verbose = 0;
+
+# Alas!! I hope you do not need to use this
+my $debug = 0;
+my $really = 0;
+
+# B-) Directory
+my $BOND="/proc/net/bonding/";
+
+# Utility method
+sub trim($)
+{
+    my $string = shift;
+    $string =~ s/^\s+//;
+    $string =~ s/\s+$//;
+    return $string;
+}
+
+sub dumpit($)
+{
+    return unless $debug eq 1 and $really eq 1;
+    my $param = shift;
+    return unless defined $param;
+    use Data::Dumper;
+    print STDOUT Dumper(\$param);
+}
+
+sub get_bonded_interfaces {
+
+    return undef unless -d $BOND;
+
+    opendir (DIR, $BOND) or return undef;
+
+    my @bonds = ();
+    while (my $file = readdir(DIR)) {
+        next if $file eq "." or $file eq "..";
+        push @bonds,$file;
+    }
+   
+    print STDOUT "Bonds: ",@bonds,"\n" if $verbose eq 1;
+
+    return \@bonds;
+}
+
+sub get_inf_speed_in_mbps($$) {
+    my $speed = shift;
+    my $unit = shift;
+
+    if( $unit eq "Kbps" ) {
+       $speed /= 1000;
+    }
+    if( $unit eq "Gbps" ) {
+       $speed *= 1000;
+    }
+
+    return $speed;
+}
+
+sub normalize_speed_unit($$) {
+    my $speed = shift;
+    my $unit = shift;
+
+    if($speed >= 1000) {
+       $speed /= 1000;
+       $unit = "Gbps";
+    }
+    elsif ($speed <= 1) {
+       $speed *= 1000;
+       $unit = "Kbps";
+    }
+    return $speed." ".$unit;
+}
+
+sub get_bond_capabilityi($) {
+    my $inf = shift;
+
+    return undef unless defined $inf;
+
+    my %cap = ();
+
+    my @status = `cat $BOND$inf 2>/dev/null`;
+
+    unless ( defined $status[0] ) {
+
+        print STDOUT "Invalid bond name\n";
+        return;
+    }
+    print STDOUT @status,"\n" if $debug eq 1;
+
+    my $prefix="";
+    my $slave_count =0;
+    my $bond_speed=0;
+    my $bond_speed_unit="Mbps";
+
+    foreach my $line (@status) {
+
+        print STDOUT "I:",$line,"\n" if $debug eq 1;
+
+        my ($key,$value) = split(":",$line);
+        $key = trim($key);
+        $value = trim($value) if defined $value;
+
+        next if $key eq "";
+
+        print STDOUT $key,":",$value,"\n" if $debug eq 1;
+
+        # Parse the output
+        if ( $line =~ m/Slave Interface/ ) {
+            $prefix="Slaves";
+            $slave_count++;
+        }
+
+        if( $prefix eq "Slaves" ) {
+            $cap{$prefix.$slave_count}{$key} = (defined $value)?$value:"NA";
+            if ( $key =~ m/Speed/ ) {
+                my ($speed,$unit) = split(" ",$value);
+                $speed = int($speed);
+                print STDOUT $cap{$prefix.$slave_count}{'Slave Interface'},": Speed: ",$speed.$unit,"\n" if $debug eq 1;
+                $bond_speed += get_inf_speed_in_mbps($speed, $unit);
+            }
+        } else {
+            $cap{$key} = (defined $value)?$value:"NA";
+        }
+    }
+    $cap{slave_count} = $slave_count;
+    $cap{speed} = normalize_speed_unit($bond_speed, $bond_speed_unit);
+    dumpit(\%cap) if $debug eq 1;
+
+    if ($verbose eq 1 ){
+        while (my($key, $value) = each(%cap)){
+            print STDOUT "    ".$key.": ".$value."\n" unless (ref($value) eq "HASH") ;
+            if (ref($value) eq "HASH") {
+               print "    ",$key," => \n";
+               while (my($subkey, $val) = each(%{$value})){
+                   print STDOUT "        ";
+                   print STDOUT $subkey.": ".$val."\n" unless (ref($val) eq "HASH") ;
+               }
+            }
+        }
+    }
+    return \%cap;
+}
+
+sub Usage {
+    print STDOUT "Usage:",$module," [OPTION]\n";
+    print STDOUT "         -i <bondname>: TO list the specified bond's capability\n";
+    print STDOUT "         -l           : TO list all the bonds on the system\n";
+    print STDOUT "         -s           : Get the bond Speed\n";
+    print STDOUT "         -S           : Get status of bonded interface\n";
+}
+
+sub _getopt()
+{
+
+   Getopt::Mixed::init('h help>h v verbose>v V version>V l list>l i=s interfacestatus>i
+                        d debug>d r realdebug>r s=s speed>s S=s status>S');
+   if(@ARGV < 1) { print "Error:\n";Usage; return; }
+   while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption()) {
+     OPTION: {
+         $option eq 'h' and do {
+         Usage;
+         last OPTION;
+      };
+      $option eq 'd' and do {
+         $debug = 1;
+         last OPTION;
+      };
+      $option eq 'r' and do {
+         $really = 1;
+         last OPTION;
+      };
+      $option eq 'l' and do {
+         $verbose = 1;
+         get_bonded_interfaces;
+         $verbose = 0;
+         last OPTION;
+      };
+      $option eq 'i' and do {
+         $verbose = 1;
+         get_bond_capabilityi($value) if defined( $value );
+         $verbose = 0;
+         last OPTION;
+      };
+      $option eq 's' and do {
+         my $cap = get_bond_capabilityi($value) if defined( $value );
+         print STDOUT $value,": ",$cap->{'speed'},"\n";
+         last OPTION;
+      };
+      $option eq 'S' and do {
+         my $cap = get_bond_capabilityi($value) if defined( $value );
+         print STDOUT $value,": ",$cap->{'MII Status'},"\n";
+         last OPTION;
+      };
+      $option eq 'v' and do {
+         $verbose = 1;
+         last OPTION;
+      };
+      $option eq 'V' and do {
+         print STDOUT $module," version ",$moduleversion,"\n";
+         last OPTION;
+      };
+      # ...
+    }
+  }
+  Getopt::Mixed::cleanup();
+
+}
+
+sub main {
+    _getopt();
+}
+
+main;
