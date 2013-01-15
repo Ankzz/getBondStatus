@@ -125,7 +125,7 @@ sub get_bond_capabilityi($) {
 
         print STDOUT "I:",$line,"\n" if $debug eq 1;
 
-        my ($key,$value) = split(":",$line);
+        my ($key,$value) = split(":",$line, 2);
         $key = trim($key);
         $value = trim($value) if defined $value;
 
