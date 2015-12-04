@@ -66,7 +66,7 @@ sub get_bonded_interfaces {
         push @bonds,$file;
     }
    
-    print STDOUT "Bonds: ",@bonds,"\n" if $verbose eq 1;
+    print STDOUT "Bonds: ", join(' ',@bonds) ,"\n" if $verbose eq 1;
 
     return \@bonds;
 }
