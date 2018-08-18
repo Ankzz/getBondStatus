@@ -21,7 +21,7 @@ use strict;
 use warnings;
 
 # To support command line options
-use Getopt::Mixed "nextOption";
+use Getopt::Long qw(:config no_ignore_case);
 
 my $module ="getBondStatus ";
 my $moduleversion = "1.00";
@@ -171,39 +171,31 @@ sub get_bond_capabilityi($) {
 }
 
 sub Usage {
-    print STDOUT "Usage:",$module," [OPTION]\n";
-    print STDOUT "         -i <bondname>: TO list the specified bond's capability\n";
-    print STDOUT "         -l           : TO list all the bonds on the system\n";
+    print STDOUT "Usage:",$module," [OPTIONS] [COMMANDS]\n";
+    print STDOUT "OPTIONS:\n";
+    print STDOUT "         -d           : To debug this tool\n";
+    print STDOUT "         -v           : To set verbose\n";
+    print STDOUT "\n";
+    print STDOUT "COMMANDS:\n";
+    print STDOUT "         -i <bondname>: To list the specified bond's capability\n";
+    print STDOUT "         -l           : To list all the bonds on the system\n";
     print STDOUT "         -s           : Get the bond Speed\n";
     print STDOUT "         -S           : Get status of bonded interface\n";
+    print STDOUT "         -V           : Get the version of $module\n"
 }
 
-sub _getopt()
+sub print_module_version()
 {
+  print STDOUT $module," version ",$moduleversion,"\n";
+}
 
-   Getopt::Mixed::init('h help>h v verbose>v V version>V l list>l i=s interfacestatus>i
-                        d debug>d r realdebug>r s=s speed>s S=s status>S');
-   if(@ARGV < 1) { print "Error:\n";Usage; return; }
-   while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption()) {
-     OPTION: {
-         $option eq 'h' and do {
-         Usage;
-         last OPTION;
-      };
-      $option eq 'd' and do {
-         $debug = 1;
-         last OPTION;
-      };
-      $option eq 'r' and do {
-         $really = 1;
-         last OPTION;
-      };
-      $option eq 'l' and do {
-         $verbose = 1;
-         get_bonded_interfaces;
-         $verbose = 0;
-         last OPTION;
-      };
+sub _get_bond_capability()
+{
+  print STDOUT "Called for @_\n" if $debug eq 1;
+
+  my ($option, $value) = @_;
+
+  OPTION : {
       $option eq 'i' and do {
          $verbose = 1;
          get_bond_capabilityi($value) if defined( $value );
@@ -212,31 +204,32 @@ sub _getopt()
       };
       $option eq 's' and do {
          my $cap = get_bond_capabilityi($value) if defined( $value );
-         print STDOUT $value,": ",$cap->{'speed'},"\n";
+         if (exists $cap->{'speed'}) {
+          print STDOUT $value,": ",$cap->{'speed'},"\n";
+         } else {
+          print STDOUT $value,": Unknown (speed)\n"
+         }
          last OPTION;
       };
       $option eq 'S' and do {
          my $cap = get_bond_capabilityi($value) if defined( $value );
-         print STDOUT $value,": ",$cap->{'MII Status'},"\n";
+         if (exists $cap->{'MII Status'}) {
+          print STDOUT $value,": ",$cap->{'MII Status'},"\n";
+         }else {
+          print STDOUT $value,": Unknown (MII Status)\n"
+         }
          last OPTION;
       };
-      $option eq 'v' and do {
-         $verbose = 1;
-         last OPTION;
-      };
-      $option eq 'V' and do {
-         print STDOUT $module," version ",$moduleversion,"\n";
-         last OPTION;
-      };
-      # ...
-    }
   }
-  Getopt::Mixed::cleanup();
-
 }
 
 sub main {
-    _getopt();
+    if(@ARGV < 1) { print "Error:\n";Usage; return; }
+    GetOptions ('h' => \&Usage, 'd' => \$debug, 'i=s' => \&_get_bond_capability,
+                's=s' => \&_get_bond_capability, 'S=s' => \&_get_bond_capability,
+                'l' => \&get_bonded_interfaces,
+                'v' => \$verbose, 'V' => \&print_module_version
+               );
 }
 
 main;
