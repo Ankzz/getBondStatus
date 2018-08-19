@@ -224,7 +224,7 @@ sub _get_bond_capability()
 }
 
 sub main {
-    if(@ARGV < 1) { print "Error:\n";Usage; return; }
+    if(@ARGV < 1) { Usage; return; }
     GetOptions ('h' => \&Usage, 'd' => \$debug, 'i=s' => \&_get_bond_capability,
                 's=s' => \&_get_bond_capability, 'S=s' => \&_get_bond_capability,
                 'l' => \&get_bonded_interfaces,
