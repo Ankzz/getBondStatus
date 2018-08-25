@@ -10,7 +10,7 @@ bugs!! Any ??? I don't hope so!
 
 Wish me to add a few more options, sure mail me!!
 
-Utilize this code for usage. :-P Don't blame if 
+Utilize this code for usage. :-P Don't blame if
 something does not works out. Just shoot a mail.
 
 License: I will get one
@@ -24,7 +24,7 @@ use warnings;
 use Getopt::Long qw(:config no_ignore_case);
 
 my $module ="getBondStatus ";
-my $moduleversion = "1.00";
+my $moduleversion = "1.01";
 
 # My variables; Lets the module speak out loud
 my $verbose = 0;
@@ -69,6 +69,12 @@ sub get_bonded_interfaces {
     print STDOUT "Bonds: ", join(' ',@bonds) ,"\n" if $verbose eq 1;
 
     return \@bonds;
+}
+
+sub _get_bonded_interfaces {
+    $verbose = 1;
+    get_bonded_interfaces();
+    $verbose = 0;
 }
 
 sub get_inf_speed_in_mbps($$) {
@@ -116,12 +122,12 @@ sub get_bond_capabilityi($) {
     }
     print STDOUT @status,"\n" if $debug eq 1;
 
-    my $prefix="";
     my $slave_count =0;
     my $bond_speed=0;
     my $bond_speed_unit="Mbps";
 
     foreach my $line (@status) {
+        my $prefix="";
 
         print STDOUT "I:",$line,"\n" if $debug eq 1;
 
@@ -135,11 +141,11 @@ sub get_bond_capabilityi($) {
 
         # Parse the output
         if ( $line =~ m/Slave Interface/ ) {
-            $prefix="Slaves";
+            $prefix="Slave ";
             $slave_count++;
         }
 
-        if( $prefix eq "Slaves" ) {
+        if( $prefix eq "Slave " ) {
             $cap{$prefix.$slave_count}{$key} = (defined $value)?$value:"NA";
             if ( $key =~ m/Speed/ ) {
                 my ($speed,$unit) = split(" ",$value);
@@ -227,7 +233,7 @@ sub main {
     if(@ARGV < 1) { Usage; return; }
     GetOptions ('h' => \&Usage, 'd' => \$debug, 'i=s' => \&_get_bond_capability,
                 's=s' => \&_get_bond_capability, 'S=s' => \&_get_bond_capability,
-                'l' => \&get_bonded_interfaces,
+                'l' => \&_get_bonded_interfaces,
                 'v' => \$verbose, 'V' => \&print_module_version
                );
 }
