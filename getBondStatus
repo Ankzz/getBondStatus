@@ -1,30 +1,24 @@
 #!/usr/bin/perl -w
 
 =head
-
 Utility to query regarding a bonded interface
-
 author= <ankzzdev>AT<gmail.com>
-
 bugs!! Any ??? I don't hope so!
-
 Wish me to add a few more options, sure mail me!!
-
-Utilize this code for usage. :-P Don't blame if
+Utilize this code for usage. :-P Don't blame if 
 something does not works out. Just shoot a mail.
-
 License: I will get one
-
 =cut
 
 use strict;
 use warnings;
+use File::Basename;
 
 # To support command line options
 use Getopt::Long qw(:config no_ignore_case);
 
-my $module ="getBondStatus ";
-my $moduleversion = "1.01";
+my $module =fileparse($0);
+my $moduleversion = "1.02";
 
 # My variables; Lets the module speak out loud
 my $verbose = 0;
@@ -59,22 +53,15 @@ sub get_bonded_interfaces {
     return undef unless -d $BOND;
 
     opendir (DIR, $BOND) or return undef;
-
     my @bonds = ();
     while (my $file = readdir(DIR)) {
         next if $file eq "." or $file eq "..";
         push @bonds,$file;
     }
-   
-    print STDOUT "Bonds: ", join(' ',@bonds) ,"\n" if $verbose eq 1;
+
+    print STDOUT "Bonds: ", join(' ',@bonds) ,"\n";
 
     return \@bonds;
-}
-
-sub _get_bonded_interfaces {
-    $verbose = 1;
-    get_bonded_interfaces();
-    $verbose = 0;
 }
 
 sub get_inf_speed_in_mbps($$) {
@@ -121,13 +108,12 @@ sub get_bond_capabilityi($) {
         return;
     }
     print STDOUT @status,"\n" if $debug eq 1;
-
+    my $prefix="";
     my $slave_count =0;
     my $bond_speed=0;
     my $bond_speed_unit="Mbps";
 
     foreach my $line (@status) {
-        my $prefix="";
 
         print STDOUT "I:",$line,"\n" if $debug eq 1;
 
@@ -233,9 +219,10 @@ sub main {
     if(@ARGV < 1) { Usage; return; }
     GetOptions ('h' => \&Usage, 'd' => \$debug, 'i=s' => \&_get_bond_capability,
                 's=s' => \&_get_bond_capability, 'S=s' => \&_get_bond_capability,
-                'l' => \&_get_bonded_interfaces,
+                'l' => \&get_bonded_interfaces,
                 'v' => \$verbose, 'V' => \&print_module_version
                );
 }
 
 main;
+    
