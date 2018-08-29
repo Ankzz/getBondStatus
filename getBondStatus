@@ -18,7 +18,7 @@ use File::Basename;
 use Getopt::Long qw(:config no_ignore_case);
 
 my $module =fileparse($0);
-my $moduleversion = "1.02";
+my $moduleversion = "1.03";
 
 # My variables; Lets the module speak out loud
 my $verbose = 0;
@@ -29,6 +29,8 @@ my $really = 0;
 
 # B-) Directory
 my $BOND="/proc/net/bonding/";
+
+my $out="default";
 
 # Utility method
 sub trim($)
@@ -53,12 +55,13 @@ sub get_bonded_interfaces {
     return undef unless -d $BOND;
 
     opendir (DIR, $BOND) or return undef;
+
     my @bonds = ();
     while (my $file = readdir(DIR)) {
         next if $file eq "." or $file eq "..";
         push @bonds,$file;
     }
-
+  
     print STDOUT "Bonds: ", join(' ',@bonds) ,"\n";
 
     return \@bonds;
@@ -103,11 +106,11 @@ sub get_bond_capabilityi($) {
     my @status = `cat $BOND$inf 2>/dev/null`;
 
     unless ( defined $status[0] ) {
-
         print STDOUT "Invalid bond name\n";
         return;
     }
     print STDOUT @status,"\n" if $debug eq 1;
+
     my $prefix="";
     my $slave_count =0;
     my $bond_speed=0;
@@ -147,32 +150,141 @@ sub get_bond_capabilityi($) {
     $cap{speed} = normalize_speed_unit($bond_speed, $bond_speed_unit);
     dumpit(\%cap) if $debug eq 1;
 
-    if ($verbose eq 1 ){
-        while (my($key, $value) = each(%cap)){
-            print STDOUT "    ".$key.": ".$value."\n" unless (ref($value) eq "HASH") ;
-            if (ref($value) eq "HASH") {
-               print "    ",$key," => \n";
-               while (my($subkey, $val) = each(%{$value})){
-                   print STDOUT "        ";
-                   print STDOUT $subkey.": ".$val."\n" unless (ref($val) eq "HASH") ;
-               }
-            }
-        }
+    if ( $out eq 'default' ) {
+      default_output(\%cap);
+    } else {
+      table_output($inf, \%cap);
     }
     return \%cap;
+}
+
+sub table_output($$) {
+  my $inf = shift;
+  my $inp = shift;
+
+  return undef unless defined $inp;
+
+  my %cap = %{$inp};
+
+  print STDOUT "bond    |  slave  |  interface |  status  |  mode  |  queue-id  |  fail count  |  speed\n";
+  my $size = keys %cap;
+  my $cnt = $cap{"slave_count"};
+  my $i=0;
+  while ($i<$cnt) {
+    $i++;
+    print STDOUT $inf ;
+    print STDOUT " " x (8 - length($inf));
+    print STDOUT "|";
+
+    print STDOUT "  $i";
+    print STDOUT " " x (9 - (length("$i")+2));
+    print STDOUT "|";
+
+    my $sinf = $cap{"Slave $i"}{'Slave Interface'};
+
+    $sinf = "Undefined" unless defined $sinf;
+
+    print STDOUT "  $sinf";
+    print STDOUT " " x (12 - (length($sinf)+2));
+    print STDOUT "|";
+
+    my $status = $cap{"Slave $i"}{'MII Status'};
+
+    $status = "Unknown" unless defined $status;
+
+    print STDOUT "  $status";
+    print STDOUT " " x (10 - (length($status)+2));
+    print STDOUT "|";
+
+    my $mode = $cap{"Slave $i"}{'Duplex'};
+
+    $mode = "Unknown" unless defined $mode;
+
+    print STDOUT "  $mode";
+    print STDOUT " " x (8 - (length($mode)+2));
+    print "|";
+
+
+    my $slaveId = $cap{"Slave $i"}{'Slave queue ID'};
+
+    $slaveId = "Unknown" unless defined $slaveId;
+
+    print STDOUT "  $slaveId";
+    print STDOUT " " x (12 - (length($slaveId)+2));
+    print STDOUT "|";
+
+    my $failureCount = $cap{"Slave $i"}{'Link Failure Count'};
+
+    $failureCount = "Unknown" unless defined $failureCount;
+    print STDOUT "  $failureCount";
+    print STDOUT " " x (14 - (length($slaveId)+2));
+    print STDOUT "|";
+
+    my $speed = $cap{"Slave $i"}{'Speed'};
+
+    $speed = "Unknown" unless defined $speed;
+
+    print STDOUT "  $speed";
+
+    print STDOUT "\n";
+  }
+}
+
+sub default_output($) {
+  my $inp = shift;
+
+  return undef unless defined $inp;
+
+  my %cap = %{$inp};
+
+  if ($verbose eq 1 ){
+      while (my($key, $value) = each(%cap)){
+          print STDOUT "    ".$key.": ".$value."\n" unless (ref($value) eq "HASH") ;
+          if (ref($value) eq "HASH") {
+             print "    ",$key," => \n";
+             while (my($subkey, $val) = each(%{$value})){
+                 print STDOUT "        ";
+                 print STDOUT $subkey.": ".$val."\n" unless (ref($val) eq "HASH") ;
+             }
+          }
+      }
+  }
+}
+
+sub setOutMode() {
+  my ($option, $value) = @_;
+
+  OPTION : {
+    $value eq 'default' and do {
+      $out = 'default';
+      last OPTION;
+    };
+    $value eq 'table' and do {
+      $out = 'table';
+      last OPTION;
+    };
+    do {
+      print STDOUT "Invalid output (-o) option\n";
+      print STDOUT "Only supported output options are: \n";
+      print STDOUT "\tdefault\n";
+      print STDOUT "\ttable\n";
+      exit(-1);
+    }
+  }
 }
 
 sub Usage {
     print STDOUT "Usage:",$module," [OPTIONS] [COMMANDS]\n";
     print STDOUT "OPTIONS:\n";
-    print STDOUT "         -d           : To debug this tool\n";
-    print STDOUT "         -v           : To set verbose\n";
+    print STDOUT "         -o [default|table] : To set the output format\n";
+    print STDOUT "         -d                 : To debug this tool\n";
+    print STDOUT "         -v                 : To set verbose\n";
     print STDOUT "\n";
     print STDOUT "COMMANDS:\n";
     print STDOUT "         -i <bondname>: To list the specified bond's capability\n";
     print STDOUT "         -l           : To list all the bonds on the system\n";
-    print STDOUT "         -s           : Get the bond Speed\n";
-    print STDOUT "         -S           : Get status of bonded interface\n";
+    print STDOUT "         -s <bondname>: Get the bond Speed\n";
+    print STDOUT "         -S <bondname>: Get status of bonded interface\n";
     print STDOUT "         -V           : Get the version of $module\n"
 }
 
@@ -211,7 +323,7 @@ sub _get_bond_capability()
           print STDOUT $value,": Unknown (MII Status)\n"
          }
          last OPTION;
-      };
+      };   
   }
 }
 
@@ -220,7 +332,8 @@ sub main {
     GetOptions ('h' => \&Usage, 'd' => \$debug, 'i=s' => \&_get_bond_capability,
                 's=s' => \&_get_bond_capability, 'S=s' => \&_get_bond_capability,
                 'l' => \&get_bonded_interfaces,
-                'v' => \$verbose, 'V' => \&print_module_version
+                'v' => \$verbose, 'V' => \&print_module_version,
+                'o=s' => \&setOutMode
                );
 }
 
