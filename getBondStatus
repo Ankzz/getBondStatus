@@ -5,7 +5,7 @@ Utility to query regarding a bonded interface
 author= <ankzzdev>AT<gmail.com>
 bugs!! Any ??? I don't hope so!
 Wish me to add a few more options, sure mail me!!
-Utilize this code for usage. :-P Don't blame if 
+Utilize this code for usage. :-P Don't blame if
 something does not works out. Just shoot a mail.
 License: I will get one
 =cut
@@ -61,7 +61,7 @@ sub get_bonded_interfaces {
         next if $file eq "." or $file eq "..";
         push @bonds,$file;
     }
-  
+
     print STDOUT "Bonds: ", join(' ',@bonds) ,"\n";
 
     return \@bonds;
@@ -311,7 +311,7 @@ sub _get_bond_capability()
          if (exists $cap->{'speed'}) {
           print STDOUT $value,": ",$cap->{'speed'},"\n";
          } else {
-          print STDOUT $value,": Unknown (speed)\n"
+          print STDOUT $value,": Unknown (speed)\n";
          }
          last OPTION;
       };
@@ -320,10 +320,10 @@ sub _get_bond_capability()
          if (exists $cap->{'MII Status'}) {
           print STDOUT $value,": ",$cap->{'MII Status'},"\n";
          }else {
-          print STDOUT $value,": Unknown (MII Status)\n"
+          print STDOUT $value,": Unknown (MII Status)\n";
          }
          last OPTION;
-      };   
+      };
   }
 }
 
@@ -338,4 +338,3 @@ sub main {
 }
 
 main;
-    
